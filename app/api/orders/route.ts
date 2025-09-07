@@ -17,11 +17,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { customer_name, items, total } = await request.json();
+    const { customer_name, items, total, total_original, timestampz } = await request.json();
     
     const { data, error } = await supabase
       .from('orders')
-      .insert({ customer_name, items, total })
+      .insert({ customer_name, items, total, total_original, status: 'pending', created_at: timestampz })
       .select();
       
     if (error) throw error;

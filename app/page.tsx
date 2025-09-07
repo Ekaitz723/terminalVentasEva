@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { PlusCircle, MinusCircle, Camera, Upload, Download, Trash2, LogOut, Lock, FileText, ScanLine, Edit, Save, X, ImageOff, DollarSign, Check, RotateCcw } from 'lucide-react'
+import { time } from 'console'
 
 interface Item {
   id: number
@@ -27,10 +28,10 @@ interface OrderItem extends Item {
 }
 
 interface Order {
-  id: string
   items: OrderItem[]
+  total_original: number
   total: number
-  timestamp: Date
+  timestampz: Date
   customerName?: string
   status?: string
 }
@@ -188,24 +189,30 @@ export default function SalesTerminal() {
 
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json()
+        console.log("ORDERS_DATA")
+        console.log(ordersData)
         console.log('[v0] Loaded orders from server:', ordersData.length || 0)
-        setOrders(
-          ordersData.map((order: any) => ({
-            ...order,
-            timestamp: new Date(order.timestamp),
-          })),
-        )
+        if (ordersData.length > 0) {
+          setOrders(
+            ordersData.map((order: any) => ({
+              ...order,
+              timestampz: order.timestampz,
+            })),
+          )
+        }
       }
 
       if (completedRes.ok) {
         const completedData = await completedRes.json()
         console.log('[v0] Loaded completed orders from server:', completedData.length || 0)
-        setPaymentHistory(
-          completedData.map((order: any) => ({
-            ...order,
-            timestamp: new Date(order.timestamp),
-          })),
-        )
+        if( completedData.length > 0 ) {
+          setPaymentHistory(
+            completedData.map((order: any) => ({
+              ...order,
+              timestampz: order.timestampz,
+            })),
+          )
+        }
       }
     } catch (error) {
       console.error('[v0] Failed to load data from server:', error)
@@ -382,10 +389,11 @@ export default function SalesTerminal() {
     if (currentOrder.length === 0) return
     
     const order: Order = {
-      id: Date.now().toString(),
+      // id: 0, // Temporary ID, will be set by the server
       items: [...currentOrder],
       total: calculateTotal(),
-      timestamp: new Date(),
+      total_original: calculateTotal(),
+      timestampz: new Date().toISOString(),
       customerName: customerName || 'Cliente',
       status: 'pending'
     }
@@ -408,19 +416,20 @@ export default function SalesTerminal() {
     }
   }
 
-  const confirmPayment = async (orderId: string) => {
+  const confirmPayment = async (orderTimestampz: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
+      console.log('Confirming payment for order:', orderTimestampz)
+      const response = await fetch(`/api/orders/${orderTimestampz}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
+        body: JSON.stringify({ status: 'completed', timestampz: orderTimestampz }),
       })
-      
+      console.log('Payment confirmation response status:', response.status)
       if (response.ok) {
-        const completedOrder = orders.find(o => o.id === orderId)
+        const completedOrder = orders.find(o => o.timestampz === orderTimestampz)
         if (completedOrder) {
           setPaymentHistory([{...completedOrder, status: 'completed'}, ...paymentHistory])
-          setOrders(orders.filter(o => o.id !== orderId))
+          setOrders(orders.filter(o => o.timestampz !== orderTimestampz))
         }
       }
     } catch (error) {
@@ -428,13 +437,13 @@ export default function SalesTerminal() {
     }
   }
 
-  const applyDiscount = (orderId: string, discountPercent: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? {...order, total: order.total * (1 - discountPercent / 100)}
-        : order
-    ))
-  }
+  // const applyDiscount = (orderTimestampz: string, discountPercent: number) => {
+  //   setOrders(orders.map(order => 
+  //     order.timestampz === orderTimestampz 
+  //       ? {...order, total: order.total * (1 - discountPercent / 100)}
+  //       : order
+  //   ))
+  // }
 
   const removeItemImage = async (itemId: number) => {
     try {
@@ -1092,7 +1101,7 @@ export default function SalesTerminal() {
                             <div>
                               <p className="font-medium">Pedido #{order.id}</p>
                               <p className="text-sm text-gray-500">
-                                {order.timestamp.toLocaleString()}
+                                {order.timestampz.toLocaleString()}
                               </p>
                               {order.customerName && (
                                 <p className="text-sm text-gray-600">Cliente: {order.customerName}</p>
@@ -1109,20 +1118,20 @@ export default function SalesTerminal() {
                           </div>
                           
                           <div className="flex gap-2 items-center">
-                            <Input
+                            {/* <Input
                               type="number"
                               placeholder="% Descuento"
                               className="w-24"
                               onChange={(e) => {
                                 const discount = parseFloat(e.target.value) || 0
                                 if (discount >= 0 && discount <= 100) {
-                                  applyDiscount(order.id, discount)
+                                  applyDiscount(order.timestampz, discount)
                                 }
                               }}
-                            />
+                            /> */}
                             <Button
                               size="sm"
-                              onClick={() => confirmPayment(order.id)}
+                              onClick={() => confirmPayment(order.timestampz)}
                               className="flex items-center gap-1"
                             >
                               <Check className="h-3 w-3" />
@@ -1156,7 +1165,7 @@ export default function SalesTerminal() {
                               <div>
                                 <p className="font-medium">Venta #{sale.id}</p>
                                 <p className="text-sm text-gray-500">
-                                  {sale.timestamp.toLocaleString()}
+                                  {sale.timestampz.toLocaleString()}
                                 </p>
                                 {sale.customerName && (
                                   <p className="text-sm text-gray-600">Cliente: {sale.customerName}</p>

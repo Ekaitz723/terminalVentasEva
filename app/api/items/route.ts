@@ -4,7 +4,7 @@ export async function GET() {
   try {
     const items = await kv.get<any[]>('items') || [];
     console.log('API GET items:', items);
-    return Response.json({ products: items });
+    return Response.json({ items: items });
   } catch (error) {
     console.log('API GET error:', error);
     return Response.json({ error: 'Failed to fetch items' }, { status: 500 });
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     items.push(item);
     await kv.set('items', items);
     
-    return Response.json({ success: true, product: item });
+    return Response.json({ success: true, item });
   } catch (error) {
     return Response.json({ error: 'Failed to create item' }, { status: 500 });
   }

@@ -228,13 +228,7 @@ export default function SalesApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(itemsData),
-      }).then(res => res.json())
-      .then(data => {
-        console.log('Raw API response:', data);
-        console.log('Products array:', data.products);
-        console.log('Array length:', data.products?.length);
-        setProducts(data.products || []);
-      });
+      })
       console.log("[v0] Save items response:", response.status)
     } catch (error) {
       console.error("[v0] Failed to save items to server:", error)

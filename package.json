@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
+    "@tailwindcss/postcss": "^4.1.13",
     "@vercel/analytics": "^1.5.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/postgres": "^0.10.0",
+    "autoprefixer": "^10.4.21",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -25,6 +27,7 @@
     "react": "^19",
     "react-dom": "^19",
     "tailwind-merge": "^2.5.5",
+    "tailwindcss": "^4.1.13",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {

@@ -90,7 +90,7 @@ function LoginForm({ onLogin }: { onLogin: (username: string) => void }) {
       <Card className="w-full max-w-md p-6">
         <div className="text-center mb-6">
           <Lock className="h-12 w-12 mx-auto text-primary mb-4" />
-          <h1 className="text-2xl font-bold">Terminal de Ventas</h1>
+          <h1 className="text-2xl font-bold">Eva拉丁美食 - Terminal de Ventas</h1>
           <p className="text-muted-foreground">Por favor inicia sesión para continuar</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
@@ -596,7 +596,7 @@ export default function SalesApp() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b">
-        <h1 className="text-xl font-bold">Terminal de Ventas</h1>
+        <h1 className="text-xl font-bold">Eva拉丁美食 - Terminal de Ventas</h1>
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground">Bienvenido, {currentUser}</span>
           <Button variant="outline" size="sm" onClick={handleLogout}>

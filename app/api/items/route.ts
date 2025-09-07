@@ -2,31 +2,30 @@ import { kv } from '@/lib/db';
 
 export async function GET() {
   try {
-    const products = await kv.get<any[]>('products') || [];
-    const flatProducts = products.flatMap(p => p.items || []);
-    return Response.json({ products: flatProducts });
+    const items = await kv.get<any[]>('items') || [];
+    return Response.json({ products: items });
   } catch (error) {
-    return Response.json({ error: 'Failed to fetch products' }, { status: 500 });
+    return Response.json({ error: 'Failed to fetch items' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const newProduct = await request.json();
-    const products = await kv.get('products') || [];
+    const newItem = await request.json();
+    const items = await kv.get<any[]>('items') || [];
     
-    const product = {
-      ...newProduct,
-      id: crypto.randomUUID(),
+    const item = {
+      ...newItem,
+      id: items.length + 1,
       createdAt: new Date().toISOString()
     };
     
-    products.push(product);
-    await kv.set('products', products);
+    items.push(item);
+    await kv.set('items', items);
     
-    return Response.json({ success: true, product });
+    return Response.json({ success: true, product: item });
   } catch (error) {
-    return Response.json({ error: 'Failed to create product' }, { status: 500 });
+    return Response.json({ error: 'Failed to create item' }, { status: 500 });
   }
 }
 

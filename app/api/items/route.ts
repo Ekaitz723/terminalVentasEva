@@ -16,10 +16,13 @@ export async function POST(request: Request) {
     const newItem = await request.json();
     const items = await kv.get<any[]>('items') || [];
     
+    // Extract just the item data, not the container
+    const itemData = newItem.items?.[0] || newItem;
+    
     const maxId = items.length > 0 ? Math.max(...items.map(item => item.id || 0)) : 0;
     
     const item = {
-      ...newItem,
+      ...itemData,
       id: maxId + 1,
       createdAt: new Date().toISOString()
     };

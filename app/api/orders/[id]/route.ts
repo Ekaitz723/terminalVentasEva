@@ -1,4 +1,4 @@
-import { sql } from '@/lib/db';
+import { supabase } from '@/lib/db';
 
 export async function PUT(
   request: Request,
@@ -7,14 +7,17 @@ export async function PUT(
   try {
     const { status } = await request.json();
     
-    const { rows } = await sql`
-      UPDATE orders 
-      SET status = ${status}, updated_at = NOW()
-      WHERE id = ${params.id}
-      RETURNING *
-    `;
-    
-    return Response.json({ success: true, order: rows[0] });
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', params.id)
+      .select();
+      
+    if (error) throw error;
+    return Response.json({ success: true, order: data[0] });
   } catch (error) {
     return Response.json({ error: 'Failed to update order' }, { status: 500 });
   }

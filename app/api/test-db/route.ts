@@ -1,10 +1,15 @@
 // api/test-db/route.ts
-import { sql } from '@/lib/db';
+import { supabase } from '@/lib/db';
 
 export async function GET() {
   try {
-    const result = await sql`SELECT NOW() as current_time`;
-    return Response.json({ success: true, time: result.rows[0] });
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id')
+      .limit(1);
+      
+    if (error) throw error;
+    return Response.json({ success: true, connected: true });
   } catch (error) {
     return Response.json({ 
       error: error.message,

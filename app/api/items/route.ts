@@ -1,70 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { promises as fs } from "fs"
-import path from "path"
-import { verifyAuth } from "@/lib/auth-middleware"
+import { kv } from '@/lib/db';
 
-const DATA_DIR = path.join(process.cwd(), "data")
-const ITEMS_FILE = path.join(DATA_DIR, "items.json")
-
-// Ensure data directory exists
-async function ensureDataDir() {
+export async function GET() {
   try {
-    await fs.access(DATA_DIR)
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-  }
-}
-
-// Default items data
-const defaultItems = {
-  items: [
-    { id: 1, name: "Coffee", price: 3.5, photo: "/coffee-cup.png", number: "001" },
-    { id: 2, name: "Sandwich", price: 8.99, photo: "/classic-sandwich.png", number: "002" },
-    { id: 3, name: "Salad", price: 12.5, photo: "/fresh-salad.png", number: "003" },
-    { id: 4, name: "Juice", price: 4.25, photo: "/glass-of-orange-juice.png", number: "004" },
-    { id: 5, name: "Pastry", price: 5.75, photo: "/assorted-pastries.png", number: "005" },
-    { id: 6, name: "Tea", price: 2.99, photo: "/elegant-tea-cup.png", number: "006" },
-  ],
-  nextItemId: 7,
-}
-
-export async function GET(request: NextRequest) {
-  const auth = verifyAuth(request)
-  if (!auth.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  try {
-    await ensureDataDir()
-
-    try {
-      const data = await fs.readFile(ITEMS_FILE, "utf8")
-      return NextResponse.json(JSON.parse(data))
-    } catch {
-      // File doesn't exist, return default items
-      await fs.writeFile(ITEMS_FILE, JSON.stringify(defaultItems, null, 2))
-      return NextResponse.json(defaultItems)
-    }
+    const products = await kv.get('products') || [];
+    return Response.json({ products });
   } catch (error) {
-    console.error("Error reading items:", error)
-    return NextResponse.json(defaultItems)
+    return Response.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
-  const auth = verifyAuth(request)
-  if (!auth.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+export async function POST(request: Request) {
   try {
-    await ensureDataDir()
-    const data = await request.json()
-
-    await fs.writeFile(ITEMS_FILE, JSON.stringify(data, null, 2))
-    return NextResponse.json({ success: true })
+    const newProduct = await request.json();
+    const products = await kv.get('products') || [];
+    
+    const product = {
+      ...newProduct,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
+    };
+    
+    products.push(product);
+    await kv.set('products', products);
+    
+    return Response.json({ success: true, product });
   } catch (error) {
-    console.error("Error saving items:", error)
-    return NextResponse.json({ error: "Failed to save items" }, { status: 500 })
+    return Response.json({ error: 'Failed to create product' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const productId = searchParams.get('id');
+    
+    const products = await kv.get('products') || [];
+    const filteredProducts = products.filter(p => p.id !== productId);
+    
+    await kv.set('products', filteredProducts);
+    return Response.json({ success: true });
+  } catch (error) {
+    return Response.json({ error: 'Failed to delete product' }, { status: 500 });
   }
 }

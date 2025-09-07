@@ -4,6 +4,7 @@ import { join } from "path"
 import { existsSync } from "fs"
 
 export async function POST(request: NextRequest) {
+  console.log("Upload image route called - ESTO NI ENTRA VERDAD??")
   try {
     const formData = await request.formData()
     const file = formData.get("image") as File

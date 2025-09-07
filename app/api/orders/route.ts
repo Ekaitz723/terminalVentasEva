@@ -15,6 +15,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const test = await sql`SELECT 1 as test`;
+    console.log('DB Connection OK:', test);
+    
     const { customer_name, items, total } = await request.json();
     
     const { rows } = await sql`

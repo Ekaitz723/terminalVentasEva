@@ -221,7 +221,7 @@ export default function SalesApp() {
     }
   }
 
-  const saveItemToServer = async (newItem: any) => {
+  const saveItemsToServer = async (newItem: any) => {
     try {
       const response = await fetch("/api/items", {
         method: "POST",

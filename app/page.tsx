@@ -1,27 +1,18 @@
-"use client"
+'use client'
 
-import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  ShoppingCart,
-  CreditCard,
-  Settings,
-  Plus,
-  Minus,
-  X,
-  Edit2,
-  Check,
-  DollarSign,
-  Upload,
-  Trash2,
-  RotateCcw,
-  Lock,
-  Download,
-} from "lucide-react"
+import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { PlusCircle, MinusCircle, Camera, Upload, Download, Trash2, LogOut, Lock, FileText, ScanLine, Edit, Save, X, ImageOff, DollarSign, Check, RotateCcw } from 'lucide-react'
 
 interface Item {
   id: number
@@ -29,166 +20,175 @@ interface Item {
   price: number
   photo: string
   number: string
-  deleted?: boolean
 }
 
-interface CartItem {
-  id: number
-  name: string
-  price: number
+interface OrderItem extends Item {
   quantity: number
-  photo: string
-  number: string
-  isCustom?: boolean
-  description?: string
 }
 
 interface Order {
-  id: number
-  items: CartItem[]
+  id: string
+  items: OrderItem[]
   total: number
   timestamp: Date
-  originalTotal?: number
-  createdBy: string
+  customerName?: string
+  status?: string
 }
 
-function LoginForm({ onLogin }: { onLogin: (username: string) => void }) {
-  const [credentials, setCredentials] = useState({ username: "", password: "" })
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+export default function SalesTerminal() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+  // Core data state
+  const [items, setItems] = useState<Item[]>([])
+  const [deletedItems, setDeletedItems] = useState<Item[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [paymentHistory, setPaymentHistory] = useState<Order[]>([])
+  const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([])
 
+  // Form state
+  const [newItem, setNewItem] = useState({ 
+    name: '', 
+    price: '', 
+    photo: '/placeholder.svg?key=new-item', 
+    number: '' 
+  })
+  const [isAddingItem, setIsAddingItem] = useState(false)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', price: '', number: '' })
+
+  // Import/Export state
+  const [jsonData, setJsonData] = useState('')
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+
+  // OCR state
+  const [ocrText, setOcrText] = useState('')
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false)
+
+  // Payment state
+  const [customerName, setCustomerName] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [amountReceived, setAmountReceived] = useState('')
+  const [discount, setDiscount] = useState('')
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null)
+
+  // UI state
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+
+  // Refs
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const ocrInputRef = useRef<HTMLInputElement>(null)
+  const editFileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    console.log('[v0] Authentication status changed:', isAuthenticated)
+    if (isAuthenticated) {
+      loadDataFromServer()
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    verifySession()
+  }, [])
+
+  const verifySession = async () => {
+    console.log('[v0] Starting session verification')
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(credentials),
-      })
-
+      const response = await fetch('/api/auth/verify')
       const data = await response.json()
-
-      if (response.ok) {
-        onLogin(data.username)
-      } else {
-        setError(data.error || "Login failed")
+      console.log('[v0] Session verification response:', data)
+      console.log('[v0] User authenticated:', data.authenticated)
+      if (data.authenticated) {
+        setIsAuthenticated(true)
       }
     } catch (error) {
-      setError("Network error. Please try again.")
-    } finally {
-      setIsLoading(false)
+      console.error('[v0] Session verification failed:', error)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="text-center mb-6">
-          <Lock className="h-12 w-12 mx-auto text-primary mb-4" />
-          <h1 className="text-2xl font-bold">Eva拉丁美食 - Terminal de Ventas</h1>
-          <p className="text-muted-foreground">Por favor inicia sesión para continuar</p>
-        </div>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <Input
-              type="text"
-              placeholder="Usuario"
-              value={credentials.username}
-              onChange={(e) => setCredentials((prev) => ({ ...prev, username: e.target.value }))}
-              required
-              disabled={isLoading}
-            />
-          </div>
-          <div>
-            <Input
-              type="password"
-              placeholder="Contraseña"
-              value={credentials.password}
-              onChange={(e) => setCredentials((prev) => ({ ...prev, password: e.target.value }))}
-              required
-              disabled={isLoading}
-            />
-          </div>
-          {error && <p className="text-destructive text-sm text-center">{error}</p>}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
-          </Button>
-        </form>
-      </Card>
-    </div>
-  )
-}
-
-const addCustomItem = (cart: any, setCart: any, customItem: any, setCustomItem: any, setShowCustomForm: any) => {
-  const newItem: CartItem = {
-    id: Date.now(),
-    name: "Custom Item",
-    price: Number.parseFloat(customItem.price),
-    quantity: 1,
-    photo: "/placeholder.svg",
-    number: "",
-    isCustom: true,
-    description: customItem.description,
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      
+      if (response.ok) {
+        setIsAuthenticated(true)
+        setUsername('')
+        setPassword('')
+      } else {
+        setError('Credenciales incorrectas')
+      }
+    } catch (error) {
+      console.error('Error en login:', error)
+      setError('Error de conexión')
+    } finally {
+      setLoading(false)
+    }
   }
-  setCart([...cart, newItem])
-  setCustomItem({ description: "", price: "" })
-  setShowCustomForm(false)
-}
 
-export default function SalesApp() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentUser, setCurrentUser] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-
-  const [activeTab, setActiveTab] = useState<"sales" | "payment" | "config">("sales")
-  const [items, setItems] = useState<Item[]>([])
-  const [nextItemId, setNextItemId] = useState(1)
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [customItem, setCustomItem] = useState({ description: "", price: "" })
-  const [showCustomForm, setShowCustomForm] = useState(false)
-  const [editingOrderId, setEditingOrderId] = useState<number | null>(null)
-  const [editingTotal, setEditingTotal] = useState("")
-  const [paymentHistory, setPaymentHistory] = useState<Order[]>([])
-
-  const [configView, setConfigView] = useState<"items" | "deleted">("items")
-  const [editingItem, setEditingItem] = useState<number | null>(null)
-  const [newItem, setNewItem] = useState({ name: "", price: "", photo: "" })
-  const [showAddForm, setShowAddForm] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [priceOverride, setPriceOverride] = useState<{ [orderId: number]: string }>({})
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      setIsAuthenticated(false)
+      setItems([])
+      setDeletedItems([])
+      setOrders([])
+      setPaymentHistory([])
+      setCurrentOrder([])
+      setCustomerName('')
+      setSearchTerm('')
+      setSelectedCategory('all')
+    } catch (error) {
+      console.error('Error en logout:', error)
+    }
+  }
 
   const loadDataFromServer = async () => {
-    console.log("[v0] Loading data from server...")
+    console.log('[v0] Loading data from server...')
+    setLoading(true)
+    
     try {
-      const [itemsRes, ordersRes, completedRes] = await Promise.all([
-        fetch("/api/items"),
-        fetch("/api/orders"),
-        fetch("/api/completed-orders"),
+      const [itemsRes, deletedRes, ordersRes, completedRes] = await Promise.all([
+        fetch('/api/items'),
+        fetch('/api/deleted-items'),
+        fetch('/api/orders'),
+        fetch('/api/completed-orders'),
       ])
 
-      console.log("[v0] API responses:", {
+      console.log('[v0] API responses:', {
         itemsStatus: itemsRes.status,
+        deletedStatus: deletedRes.status,
         ordersStatus: ordersRes.status,
         completedStatus: completedRes.status,
       })
 
       if (itemsRes.ok) {
         const itemsData = await itemsRes.json()
-        console.log("[v0] Loaded items from server:", itemsData.items?.length || 0)
+        console.log('[v0] Loaded items from server:', itemsData.items?.length || 0)
         setItems(itemsData.items || [])
-        setNextItemId(itemsData.nextItemId || 1)
+      }
+
+      if (deletedRes.ok) {
+        const deletedData = await deletedRes.json()
+        console.log('[v0] Loaded deleted items from server:', deletedData.items?.length || 0)
+        setDeletedItems(deletedData.items || [])
       }
 
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json()
-        console.log("[v0] Loaded orders from server:", ordersData.length || 0)
+        console.log('[v0] Loaded orders from server:', ordersData.length || 0)
         setOrders(
           ordersData.map((order: any) => ({
             ...order,
@@ -199,7 +199,7 @@ export default function SalesApp() {
 
       if (completedRes.ok) {
         const completedData = await completedRes.json()
-        console.log("[v0] Loaded completed orders from server:", completedData.length || 0)
+        console.log('[v0] Loaded completed orders from server:', completedData.length || 0)
         setPaymentHistory(
           completedData.map((order: any) => ({
             ...order,
@@ -208,1009 +208,979 @@ export default function SalesApp() {
         )
       }
     } catch (error) {
-      console.error("[v0] Failed to load data from server:", error)
+      console.error('[v0] Failed to load data from server:', error)
       setItems([
-        { id: 1, name: "Coffee", price: 3.5, photo: "/coffee-cup.png", number: "001" },
-        { id: 2, name: "Sandwich", price: 8.99, photo: "/classic-sandwich.png", number: "002" },
-        { id: 3, name: "Salad", price: 12.5, photo: "/fresh-salad.png", number: "003" },
-        { id: 4, name: "Juice", price: 4.25, photo: "/glass-of-orange-juice.png", number: "004" },
-        { id: 5, name: "Pastry", price: 5.75, photo: "/assorted-pastries.png", number: "005" },
-        { id: 6, name: "Tea", price: 2.99, photo: "/elegant-tea-cup.png", number: "006" },
+        { id: 1, name: 'Coffee', price: 3.5, photo: '/coffee-cup.png', number: '001' },
+        { id: 2, name: 'Sandwich', price: 8.99, photo: '/classic-sandwich.png', number: '002' },
+        { id: 3, name: 'Salad', price: 12.5, photo: '/fresh-salad.png', number: '003' },
+        { id: 4, name: 'Juice', price: 4.25, photo: '/glass-of-orange-juice.png', number: '004' },
+        { id: 5, name: 'Pastry', price: 5.75, photo: '/assorted-pastries.png', number: '005' },
+        { id: 6, name: 'Tea', price: 2.99, photo: '/elegant-tea-cup.png', number: '006' },
       ])
-      setNextItemId(7)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const saveItemsToServer = async (newItem: any) => {
+  const saveItemsToServer = async (itemsArray: any[]) => {
+    console.log('[v0] Saving items to server:', itemsArray.length)
     try {
-      const response = await fetch("/api/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newItem),
-      })
-      console.log("[v0] Save item response:", response.status)
-    } catch (error) {
-      console.error("[v0] Failed to save item to server:", error)
-    }
-  }
-
-  const saveOrderToServer = async (order: Order) => {
-    console.log("[v0] Saving order to server:", order.id)
-    try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order),
-      })
-      console.log("[v0] Save order response:", response.status)
-    } catch (error) {
-      console.error("[v0] Failed to save order to server:", error)
-    }
-  }
-
-  const saveCompletedOrderToServer = async (order: Order) => {
-    try {
-      await fetch("/api/completed-orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order),
-      })
-    } catch (error) {
-      console.error("Failed to save completed order to server:", error)
-    }
-  }
-
-  const deleteOrderFromServer = async (orderId: number) => {
-    try {
-      await fetch(`/api/orders/${orderId}`, {
-        method: "DELETE",
-      })
-    } catch (error) {
-      console.error("Failed to delete order from server:", error)
-    }
-  }
-
-  useEffect(() => {
-    console.log("[v0] Authentication status changed:", isAuthenticated)
-    const verifySession = async () => {
-      try {
-        console.log("[v0] Starting session verification")
-        const response = await fetch("/api/auth/verify")
-
-        if (!response.ok) {
-          console.log("[v0] Response not ok:", response.status, response.statusText)
-          if (response.status === 500) {
-            console.error("[v0] Server error during verification")
-          }
-          setIsLoading(false)
-          return
-        }
-
-        const data = await response.json()
-        console.log("[v0] Session verification response:", data)
-
-        if (data.authenticated) {
-          setIsAuthenticated(true)
-          setCurrentUser(data.username)
-          console.log("[v0] User authenticated:", data.username)
-        }
-      } catch (error) {
-        console.error("[v0] Session verification failed:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    verifySession()
-  }, [])
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      setIsAuthenticated(false)
-      setCurrentUser("")
-    } catch (error) {
-      console.error("Logout failed:", error)
-    }
-  }
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadDataFromServer()
-    }
-  }, [isAuthenticated])
-
-  const activeItems = items.filter((item) => !item.deleted)
-  const deletedItems = items.filter((item) => item.deleted)
-
-  const addToCart = (item: Item) => {
-    setCart((prev) => {
-      const existing = prev.find((cartItem) => cartItem.id === item.id)
-      if (existing) {
-        return prev.map((cartItem) =>
-          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem,
-        )
-      }
-      return [...prev, { ...item, quantity: 1 }]
-    })
-  }
-
-  const updateQuantity = (id: number, change: number) => {
-    setCart((prev) => {
-      return prev
-        .map((item) => {
-          if (item.id === id) {
-            const newQuantity = Math.max(0, item.quantity + change)
-            return newQuantity === 0 ? null : { ...item, quantity: newQuantity }
-          }
-          return item
+      for (const item of itemsArray) {
+        const response = await fetch('/api/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
         })
-        .filter(Boolean) as CartItem[]
+        console.log('[v0] Save item response:', response.status)
+      }
+      // Reload items after saving
+      await loadDataFromServer()
+    } catch (error) {
+      console.error('[v0] Failed to save items to server:', error)
+      setError('Error guardando productos')
+    }
+  }
+
+  const addItem = () => {
+    const price = parseFloat(newItem.price)
+    if (newItem.name && !isNaN(price) && price > 0) {
+      // Auto-generate number if not provided
+      const number = newItem.number || String(items.length + 1).padStart(3, '0')
+      
+      const itemToSave = {
+        name: newItem.name,
+        price: price,
+        photo: newItem.photo,
+        number: number,
+      }
+      
+      saveItemsToServer([itemToSave])
+      setNewItem({ name: '', price: '', photo: '/placeholder.svg?key=new-item', number: '' })
+      setIsAddingItem(false)
+      setOcrText('')
+    }
+  }
+
+  const startEditItem = (item: Item) => {
+    setEditingItem(item)
+    setEditForm({
+      name: item.name,
+      price: item.price.toString(),
+      number: item.number
     })
   }
 
-  const removeFromCart = (id: number) => {
-    setCart((prev) => prev.filter((item) => item.id !== id))
-  }
-
-  const submitOrder = async () => {
-    if (cart.length === 0) return
-
-    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const newOrder: Order = {
-      id: Date.now(),
-      items: [...cart],
-      total,
-      timestamp: new Date(),
-      createdBy: currentUser,
-    }
-
-    setOrders((prev) => [...prev, newOrder])
-    await saveOrderToServer(newOrder)
-    setCart([])
-  }
-
-  const confirmPayment = async (orderId: number) => {
-    const order = orders.find((o) => o.id === orderId)
-    if (order) {
-      setPaymentHistory((prev) => [order, ...prev])
-      await saveCompletedOrderToServer(order)
-    }
-    setOrders((prev) => prev.filter((order) => order.id !== orderId))
-    await deleteOrderFromServer(orderId)
-  }
-
-  const startEditingPrice = (orderId: number, currentTotal: number) => {
-    setEditingOrderId(orderId)
-    setEditingTotal(currentTotal.toString())
-  }
-
-  const saveEditedPrice = (orderId: number) => {
-    const newTotal = Number.parseFloat(editingTotal)
-    if (isNaN(newTotal) || newTotal < 0) return
-
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-            ...order,
-            originalTotal: order.originalTotal || order.total,
-            total: newTotal,
-          }
-          : order,
-      ),
-    )
-    setEditingOrderId(null)
-    setEditingTotal("")
-  }
-
-  const cancelEditingPrice = () => {
-    setEditingOrderId(null)
-    setEditingTotal("")
-  }
-
-  const applyDiscount = (orderId: number, percentage: number) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-            ...order,
-            originalTotal: order.originalTotal || order.total,
-            total: (order.originalTotal || order.total) * (1 - percentage / 100),
-          }
-          : order,
-      ),
-    )
-  }
-
-  const handleImageUpload = async (itemId: number | null, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    try {
-      // Crear FormData para enviar el archivo
-      const formData = new FormData()
-      formData.append("image", file)
-
-      // Subir imagen al servidor
-      const response = await fetch("/api/upload-image", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error("Error al subir imagen")
-      }
-
-      const { imagePath } = await response.json()
-
-      if (itemId === null) {
-        // Para nuevo artículo
-        setNewItem((prev) => ({ ...prev, photo: imagePath }))
-      } else {
-        // Para artículo existente
-        setItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, photo: imagePath } : item)))
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error)
-      alert("Error al subir la imagen. Por favor, inténtalo de nuevo.")
-    }
-  }
-
-  const addNewItem = async () => {
-    if (!newItem.name || !newItem.price) return
-
-    const item: Item = {
-      id: nextItemId,
-      name: newItem.name,
-      price: Number.parseFloat(newItem.price),
-      photo: newItem.photo || "/placeholder.svg?key=new-item",
-      number: nextItemId.toString().padStart(3, "0"),
-    }
-
-    const newItems = [...items, item]
-    const newNextId = nextItemId + 1
-
-    setItems(newItems)
-    setNextItemId(newNextId)
-    await saveItemsToServer({ items: newItems, nextItemId: newNextId })
-
-    setNewItem({ name: "", price: "", photo: "" })
-    setShowAddForm(false)
-  }
-
-  const deleteItem = async (itemId: number) => {
-    const newItems = items.map((item) => (item.id === itemId ? { ...item, deleted: true } : item))
-    setItems(newItems)
-    await saveItemsToServer({ items: newItems, nextItemId })
-  }
-
-  const restoreItem = async (itemId: number) => {
-    const newItems = items.map((item) => (item.id === itemId ? { ...item, deleted: false } : item))
-    setItems(newItems)
-    await saveItemsToServer({ items: newItems, nextItemId })
-  }
-
-  const updateItem = async (itemId: number, field: keyof Item, value: string | number) => {
-    const newItems = items.map((item) => (item.id === itemId ? { ...item, [field]: value } : item))
-    setItems(newItems)
-    await saveItemsToServer({ items: newItems, nextItemId })
-  }
-
-  const exportItemsJSON = () => {
-    const dataStr = JSON.stringify({ items, nextItemId }, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "items-config.json"
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const importItemsJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = async (e) => {
+  const saveEditItem = async () => {
+    if (!editingItem) return
+    
+    const price = parseFloat(editForm.price)
+    if (editForm.name && !isNaN(price) && price > 0) {
       try {
-        const data = JSON.parse(e.target?.result as string)
-        if (data.items && Array.isArray(data.items)) {
-          setItems(data.items)
-          setNextItemId(data.nextItemId || data.items.length + 1)
-          await saveItemsToServer(data)
+        const response = await fetch(`/api/items?id=${editingItem.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: editForm.name,
+            price: price,
+            number: editForm.number || editingItem.number
+          }),
+        })
+        
+        if (response.ok) {
+          await loadDataFromServer()
+          setEditingItem(null)
         }
       } catch (error) {
-        alert("Invalid JSON file")
+        console.error('Failed to update item:', error)
       }
     }
-    reader.readAsText(file)
   }
 
-  const downloadCompletedOrders = () => {
-    const ordersData = {
-      completedOrders: paymentHistory,
-      exportDate: new Date().toISOString(),
-      totalOrders: paymentHistory.length,
-      totalRevenue: paymentHistory.reduce((sum, order) => sum + order.total, 0),
+  const removeItem = async (id: number) => {
+    try {
+      // Move to deleted_items instead of permanent deletion
+      const response = await fetch(`/api/items?id=${id}&action=delete`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        await loadDataFromServer()
+      }
+    } catch (error) {
+      console.error('Failed to delete item:', error)
     }
-
-    const dataStr = JSON.stringify(ordersData, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `completed-orders-${new Date().toISOString().split("T")[0]}.json`
-    link.click()
-    URL.revokeObjectURL(url)
   }
 
-  const applyPriceOverride = (orderId: number) => {
-    const overrideValue = priceOverride[orderId]
-    if (!overrideValue) return
+  const restoreItem = async (id: number) => {
+    try {
+      const response = await fetch(`/api/deleted-items?id=${id}&action=restore`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        await loadDataFromServer()
+      }
+    } catch (error) {
+      console.error('Failed to restore item:', error)
+    }
+  }
 
-    const newTotal = Number.parseFloat(overrideValue)
-    if (isNaN(newTotal) || newTotal < 0) return
+  const permanentlyDeleteItem = async (id: number) => {
+    try {
+      const response = await fetch(`/api/deleted-items?id=${id}&action=permanent`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        await loadDataFromServer()
+      }
+    } catch (error) {
+      console.error('Failed to permanently delete item:', error)
+    }
+  }
 
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-            ...order,
-            originalTotal: order.originalTotal || order.total,
-            total: newTotal,
+  const addToOrder = (item: Item) => {
+    const existingItem = currentOrder.find(orderItem => orderItem.id === item.id)
+    if (existingItem) {
+      setCurrentOrder(currentOrder.map(orderItem =>
+        orderItem.id === item.id
+          ? { ...orderItem, quantity: orderItem.quantity + 1 }
+          : orderItem
+      ))
+    } else {
+      setCurrentOrder([...currentOrder, { ...item, quantity: 1 }])
+    }
+  }
+
+  const removeFromOrder = (id: number) => {
+    const existingItem = currentOrder.find(orderItem => orderItem.id === id)
+    if (existingItem && existingItem.quantity > 1) {
+      setCurrentOrder(currentOrder.map(orderItem =>
+        orderItem.id === id
+          ? { ...orderItem, quantity: orderItem.quantity - 1 }
+          : orderItem
+      ))
+    } else {
+      setCurrentOrder(currentOrder.filter(orderItem => orderItem.id !== id))
+    }
+  }
+
+  const clearOrder = () => {
+    setCurrentOrder([])
+    setCustomerName('')
+    setAmountReceived('')
+  }
+
+  const calculateTotal = () => {
+    return currentOrder.reduce((total, item) => total + (item.price * item.quantity), 0)
+  }
+
+  const calculateChange = () => {
+    const total = calculateTotal()
+    const received = parseFloat(amountReceived) || 0
+    return received - total
+  }
+
+  const processPayment = async () => {
+    if (currentOrder.length === 0) return
+    
+    const order: Order = {
+      id: Date.now().toString(),
+      items: [...currentOrder],
+      total: calculateTotal(),
+      timestamp: new Date(),
+      customerName: customerName || 'Cliente',
+      status: 'pending'
+    }
+    
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order),
+      })
+      
+      if (response.ok) {
+        setOrders([order, ...orders])
+        clearOrder()
+        console.log('[v0] Order registered successfully')
+      }
+    } catch (error) {
+      console.error('[v0] Failed to register order:', error)
+      setError('Error registrando pedido')
+    }
+  }
+
+  const confirmPayment = async (orderId: string) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      })
+      
+      if (response.ok) {
+        const completedOrder = orders.find(o => o.id === orderId)
+        if (completedOrder) {
+          setPaymentHistory([{...completedOrder, status: 'completed'}, ...paymentHistory])
+          setOrders(orders.filter(o => o.id !== orderId))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to confirm payment:', error)
+    }
+  }
+
+  const applyDiscount = (orderId: string, discountPercent: number) => {
+    setOrders(orders.map(order => 
+      order.id === orderId 
+        ? {...order, total: order.total * (1 - discountPercent / 100)}
+        : order
+    ))
+  }
+
+  const removeItemImage = async (itemId: number) => {
+    try {
+      const response = await fetch(`/api/items?id=${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo: '/placeholder.svg?key=new-item'
+        }),
+      })
+      
+      if (response.ok) {
+        await loadDataFromServer()
+      }
+    } catch (error) {
+      console.error('Failed to remove image:', error)
+    }
+  }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setNewItem({ ...newItem, photo: e.target?.result as string })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleEditImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && editingItem) {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const response = await fetch(`/api/items?id=${editingItem.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...editingItem,
+              photo: e.target?.result as string
+            }),
+          })
+          
+          if (response.ok) {
+            await loadDataFromServer()
           }
-          : order,
-      ),
-    )
-
-    // Clear the override input
-    setPriceOverride((prev) => ({ ...prev, [orderId]: "" }))
+        } catch (error) {
+          console.error('Failed to update image:', error)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
+  const processOCR = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsProcessingOCR(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setOcrText(data.text || '')
+      }
+    } catch (error) {
+      console.error('OCR processing failed:', error)
+      setError('Error procesando OCR')
+    } finally {
+      setIsProcessingOCR(false)
+    }
   }
+
+  const importFromJSON = () => {
+    try {
+      const data = JSON.parse(jsonData)
+      if (Array.isArray(data)) {
+        const validItems = data.filter(item => 
+          item.name && typeof item.price === 'number' && item.price > 0
+        ).map((item, index) => ({
+          name: item.name,
+          price: item.price,
+          photo: item.photo || '/placeholder.svg?key=new-item',
+          number: item.number || String(items.length + index + 1).padStart(3, '0')
+        }))
+        
+        if (validItems.length > 0) {
+          saveItemsToServer(validItems)
+          setJsonData('')
+          setIsImportDialogOpen(false)
+        }
+      }
+    } catch (error) {
+      setError('JSON inválido')
+    }
+  }
+
+  const exportToJSON = () => {
+    const dataStr = JSON.stringify(items, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'items.json'
+    link.click()
+  }
+
+  const filteredItems = items.filter(item => 
+    item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.number?.includes(searchTerm)
+  )
 
   if (!isAuthenticated) {
     return (
-      <LoginForm
-        onLogin={(username) => {
-          setIsAuthenticated(true)
-          setCurrentUser(username)
-        }}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Lock className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+            <CardTitle className="text-2xl font-bold text-gray-800">
+              Eva拉丁美食 - Terminal de Ventas
+            </CardTitle>
+            <p className="text-gray-600">Por favor inicia sesión para continuar</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Label htmlFor="username">Usuario</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+              {error && (
+                <div className="text-red-500 text-sm text-center">{error}</div>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Iniciando...' : 'Iniciar Sesión'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b">
-        <h1 className="text-xl font-bold">Eva拉丁美食 - Terminal de Ventas</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">Bienvenido, {currentUser}</span>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Eva拉丁美食 - Terminal de Ventas</h1>
+          <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+            <LogOut className="h-4 w-4" />
             Cerrar Sesión
           </Button>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="flex bg-card border-b">
-        {[
-          { key: "sales", label: "Ventas", icon: ShoppingCart },
-          { key: "payment", label: "Pagos", icon: CreditCard },
-          { key: "config", label: "Configuración", icon: Settings },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key as any)}
-            className={`flex-1 flex items-center justify-center gap-2 p-4 text-sm font-medium transition-colors min-h-[60px] ${activeTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content Area */}
-      <div className="p-4 pb-20">
-        {activeTab === "sales" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {activeItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className="p-3 cursor-pointer hover:bg-accent/10 transition-colors active:scale-95 min-h-[140px]"
-                  onClick={() => addToCart(item)}
-                >
-                  <div className="text-center space-y-2 h-full flex flex-col">
-                    <img
-                      src={item.photo || "/placeholder.svg"}
-                      alt={item.name}
-                      className="w-full h-16 sm:h-20 object-cover rounded-md flex-shrink-0"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.src = "/generic-food-item.png"
-                      }}
-                    />
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <p className="font-medium text-sm leading-tight">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">#{item.number}</p>
-                      </div>
-                      <p className="text-primary font-bold text-lg">${item.price.toFixed(2)}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-
-              <Card className="p-3 min-h-[140px]">
-                <div className="text-center space-y-2 h-full flex flex-col">
-                  {!showCustomForm ? (
-                    <>
-                      <div className="w-full h-16 sm:h-20 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                        <Plus className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-center">
-                        <p className="font-medium text-sm">Artículo Personalizado</p>
-                        <Button
-                          size="sm"
-                          onClick={() => setShowCustomForm(true)}
-                          className="w-full text-xs mt-2"
-                          variant="outline"
-                        >
-                          Añadir Personalizado
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-2 h-full flex flex-col">
-                      <div className="flex justify-between items-center">
-                        <p className="font-medium text-sm">Artículo Personalizado</p>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setShowCustomForm(false)
-                            setCustomItem({ description: "", price: "" })
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <Input
-                        type="text"
-                        placeholder="Descripción"
-                        value={customItem.description}
-                        onChange={(e) => setCustomItem((prev) => ({ ...prev, description: e.target.value }))}
-                        className="text-xs h-8"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Precio"
-                        value={customItem.price}
-                        onChange={(e) => setCustomItem((prev) => ({ ...prev, price: e.target.value }))}
-                        className="text-xs h-8"
-                        step="0.01"
-                        min="0"
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const input = document.createElement("input")
-                          input.type = "file"
-                          input.accept = "image/*"
-                          input.onchange = (e) => handleImageUpload(null, e as any)
-                          input.click()
-                        }}
-                        className="w-full"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Subir Foto
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => addCustomItem(cart, setCart, customItem, setCustomItem, setShowCustomForm)}
-                        className="w-full text-xs mt-auto"
-                        disabled={!customItem.description || !customItem.price}
-                      >
-                        Añadir al Carrito
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-
-            {cart.length > 0 && (
-              <Card className="p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg">Pedido Actual</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCart([])}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    Limpiar Todo
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div
-                      key={`${item.id}-${item.isCustom ? "custom" : "regular"}`}
-                      className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg"
-                    >
-                      <img
-                        src={item.photo || "/placeholder.svg"}
-                        alt={item.name}
-                        className="w-12 h-12 object-cover rounded-md flex-shrink-0"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = "/generic-food-item.png"
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} each</p>
-                        {item.isCustom && item.description && (
-                          <p className="text-xs text-accent">Personalizado: {item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="text-right min-w-[60px]">
-                        <p className="font-bold text-sm">${(item.price * item.quantity).toFixed(2)}</p>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeFromCart(item.id)}
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="border-t pt-4 flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-lg">
-                        Total: ${cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {cart.reduce((sum, item) => sum + item.quantity, 0)} artículos
-                      </p>
-                    </div>
-                    <Button onClick={submitOrder} className="px-8 py-3 text-base font-medium">
-                      Enviar Pedido
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            )}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError('')}
+              className="float-right"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
 
-        {activeTab === "payment" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold">Pedidos Pendientes</h2>
-              <div className="text-sm text-muted-foreground">
-                {orders.length} pendientes • {paymentHistory.length} completados hoy
-              </div>
-            </div>
+        <Tabs defaultValue="pos" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="pos">Terminal POS</TabsTrigger>
+            <TabsTrigger value="items">Gestión de Productos</TabsTrigger>
+            <TabsTrigger value="orders">Pedidos</TabsTrigger>
+            <TabsTrigger value="history">Historial</TabsTrigger>
+          </TabsList>
 
-            {orders.length === 0 ? (
-              <Card className="p-8 text-center">
-                <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No hay pedidos pendientes</p>
-                <p className="text-xs text-muted-foreground mt-2">Los pedidos aparecerán aquí después del envío</p>
-              </Card>
-            ) : (
-              orders.map((order) => (
-                <Card key={order.id} className="p-4">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-lg">Pedido #{order.id.toString().slice(-6)}</p>
-                        <p className="text-xs text-muted-foreground">{order.timestamp.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">Creado por: {order.createdBy}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {order.items.reduce((sum, item) => sum + item.quantity, 0)} artículos
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        {editingOrderId === order.id ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              value={editingTotal}
-                              onChange={(e) => setEditingTotal(e.target.value)}
-                              className="w-24 h-8 text-right"
-                              step="0.01"
-                              min="0"
-                            />
-                            <Button size="sm" onClick={() => saveEditedPrice(order.id)} className="h-8 w-8 p-0">
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEditingPrice} className="h-8 w-8 p-0">
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-lg">${order.total.toFixed(2)}</p>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => startEditingPrice(order.id, order.total)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            {order.originalTotal && order.originalTotal !== order.total && (
-                              <p className="text-xs text-muted-foreground line-through">
-                                Original: ${order.originalTotal.toFixed(2)}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      {order.items.map((item, index) => (
-                        <div
-                          key={`${order.id}-${item.id}-${index}`}
-                          className="flex items-center gap-3 p-2 bg-muted/20 rounded-lg"
-                        >
-                          <img
-                            src={item.photo || "/placeholder.svg"}
-                            alt={item.name}
-                            className="w-10 h-10 object-cover rounded-md flex-shrink-0"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src = "/generic-food-item.png"
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.quantity}x ${item.price.toFixed(2)}
-                              {item.isCustom && " (Personalizado)"}
-                            </p>
-                          </div>
-                          <p className="font-medium text-sm">${(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Sobreescribir Precio (Opcional)</p>
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          placeholder="Ingrese nuevo precio"
-                          value={priceOverride[order.id] || ""}
-                          onChange={(e) => setPriceOverride((prev) => ({ ...prev, [order.id]: e.target.value }))}
-                          className="flex-1"
-                          step="0.01"
-                          min="0"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => applyPriceOverride(order.id)}
-                          disabled={!priceOverride[order.id]}
-                        >
-                          Aplicar
-                        </Button>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={() => confirmPayment(order.id)}
-                      className="w-full py-3 text-base font-medium"
-                      size="lg"
-                    >
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      Confirmar Pago - ${order.total.toFixed(2)}
-                    </Button>
-                  </div>
-                </Card>
-              ))
-            )}
-
-            {paymentHistory.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-lg font-bold mb-4">Pagos Recientes</h3>
-                <div className="space-y-2">
-                  {paymentHistory.slice(0, 5).map((order) => (
-                    <Card key={`history-${order.id}`} className="p-3 bg-muted/30">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium text-sm">Pedido #{order.id.toString().slice(-6)}</p>
-                          <p className="text-xs text-muted-foreground">{order.timestamp.toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">Por: {order.createdBy}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-sm text-green-600">${order.total.toFixed(2)}</p>
-                          {order.originalTotal && order.originalTotal !== order.total && (
-                            <p className="text-xs text-muted-foreground line-through">
-                              ${order.originalTotal.toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "config" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold">Configuración</h2>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={configView === "items" ? "default" : "outline"}
-                  onClick={() => setConfigView("items")}
-                  className="flex-1"
-                >
-                  Artículos Activos ({activeItems.length})
-                </Button>
-                <Button
-                  size="sm"
-                  variant={configView === "deleted" ? "default" : "outline"}
-                  onClick={() => setConfigView("deleted")}
-                  className="flex-1"
-                >
-                  Artículos Eliminados ({deletedItems.length})
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              {showAddForm && (
-                <Card className="p-4">
-                  <div className="space-y-4">
+          <TabsContent value="pos" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
                     <div className="flex justify-between items-center">
-                      <h3 className="font-bold">Añadir Nuevo Artículo</h3>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowAddForm(false)
-                          setNewItem({ name: "", price: "", photo: "" })
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <CardTitle>Productos Disponibles</CardTitle>
+                      <Input
+                        placeholder="Buscar productos..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-xs"
+                      />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Nombre del artículo"
-                          value={newItem.name}
-                          onChange={(e) => setNewItem((prev) => ({ ...prev, name: e.target.value }))}
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Precio"
-                          value={newItem.price}
-                          onChange={(e) => setNewItem((prev) => ({ ...prev, price: e.target.value }))}
-                          step="0.01"
-                          min="0"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            const input = document.createElement("input")
-                            input.type = "file"
-                            input.accept = "image/*"
-                            input.onchange = (e) => handleImageUpload(null, e as any)
-                            input.click()
-                          }}
-                          className="w-full"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Subir Foto
-                        </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <div className="text-center py-8">Cargando productos...</div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {filteredItems.map((item) => (
+                          <Card
+                            key={item.id}
+                            className="cursor-pointer hover:shadow-lg transition-shadow"
+                            onClick={() => addToOrder(item)}
+                          >
+                            <CardContent className="p-3">
+                              <img
+                                src={item.photo}
+                                alt={item.name}
+                                className="w-full h-20 object-cover rounded mb-2"
+                              />
+                              <h3 className="font-medium text-sm">{item.name}</h3>
+                              <p className="text-xs text-gray-500">#{item.number}</p>
+                              <p className="text-lg font-bold text-blue-600">${(item.price || 0).toFixed(2)}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-center">
-                        <img
-                          src={newItem.photo || "/placeholder.svg?key=new-preview"}
-                          alt="Vista previa"
-                          className="w-24 h-24 object-cover rounded-md border"
-                        />
-                      </div>
-                    </div>
-                    <Button onClick={addNewItem} disabled={!newItem.name || !newItem.price} className="w-full">
-                      Añadir Artículo
-                    </Button>
-                  </div>
+                    )}
+                  </CardContent>
                 </Card>
-              )}
-            </div>
+              </div>
 
-            {configView === "items" && (
-              <div className="space-y-4">
-                {!showAddForm && (
-                  <Button onClick={() => setShowAddForm(true)} className="w-full" variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Añadir Nuevo Artículo
-                  </Button>
-                )}
-
-                <div className="grid gap-4">
-                  {activeItems.map((item) => (
-                    <Card key={item.id} className="p-4">
-                      <div className="flex items-center gap-4">
-                        <img
-                          src={item.photo || "/placeholder.svg"}
-                          alt={item.name}
-                          className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.src = "/generic-food-item.png"
-                          }}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Pedido Actual</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="customerName">Cliente</Label>
+                        <Input
+                          id="customerName"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Nombre del cliente"
                         />
-                        <div className="flex-1 space-y-2">
-                          {editingItem === item.id ? (
-                            <div className="space-y-2">
-                              <Input
-                                value={item.name}
-                                onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                                placeholder="Nombre del artículo"
-                              />
-                              <Input
-                                type="number"
-                                value={item.price}
-                                onChange={(e) => updateItem(item.id, "price", Number.parseFloat(e.target.value))}
-                                placeholder="Precio"
-                                step="0.01"
-                                min="0"
-                              />
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                #{item.number} • ${item.price.toFixed(2)}
-                              </p>
-                            </div>
+                      </div>
+                      
+                      <ScrollArea className="h-60">
+                        {currentOrder.length === 0 ? (
+                          <p className="text-gray-500 text-center py-8">No hay productos en el pedido</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {currentOrder.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{item.name}</p>
+                                  <p className="text-blue-600">${(item.price || 0).toFixed(2)} x {item.quantity}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => removeFromOrder(item.id)}
+                                  >
+                                    <MinusCircle className="h-3 w-3" />
+                                  </Button>
+                                  <span className="w-8 text-center text-sm">{item.quantity}</span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => addToOrder(item)}
+                                  >
+                                    <PlusCircle className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                      
+                      <Separator />
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center text-lg font-bold">
+                          <span>Total:</span>
+                          <span>${calculateTotal().toFixed(2)}</span>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="amountReceived">Cantidad Recibida</Label>
+                          <Input
+                            id="amountReceived"
+                            type="number"
+                            step="0.01"
+                            value={amountReceived}
+                            onChange={(e) => setAmountReceived(e.target.value)}
+                            placeholder="0.00"
+                          />
+                          {amountReceived && (
+                            <p className="text-sm mt-1">
+                              Cambio: ${calculateChange().toFixed(2)}
+                            </p>
                           )}
                         </div>
+                        
                         <div className="flex gap-2">
                           <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const input = document.createElement("input")
-                              input.type = "file"
-                              input.accept = "image/*"
-                              input.onchange = (e) => handleImageUpload(item.id, e as any)
-                              input.click()
-                            }}
+                            onClick={processPayment}
+                            disabled={currentOrder.length === 0}
+                            className="flex-1"
                           >
-                            <Upload className="h-4 w-4" />
+                            Registrar Pedido
                           </Button>
                           <Button
-                            size="sm"
+                            onClick={clearOrder}
                             variant="outline"
-                            onClick={() => setEditingItem(editingItem === item.id ? null : item.id)}
+                            disabled={currentOrder.length === 0}
                           >
-                            {editingItem === item.id ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteItem(item.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                            Limpiar
                           </Button>
                         </div>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="items">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Gestión de Productos</CardTitle>
+                <div className="flex gap-2">
+                  <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button><Download className="h-4 w-4 mr-2" />Importar JSON</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Importar desde JSON</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Textarea
+                          value={jsonData}
+                          onChange={(e) => setJsonData(e.target.value)}
+                          placeholder="Pega aquí el JSON con los productos..."
+                          rows={10}
+                        />
+                        <div className="flex gap-2">
+                          <Button onClick={importFromJSON}>Importar</Button>
+                          <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Button onClick={exportToJSON} variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />Exportar JSON
+                  </Button>
+                  
+                  <Button onClick={() => setIsAddingItem(true)}>
+                    <PlusCircle className="h-4 w-4 mr-2" />Agregar Producto
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isAddingItem && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle>Nuevo Producto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="name">Nombre</Label>
+                        <Input
+                          id="name"
+                          value={newItem.name}
+                          onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="price">Precio</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          value={newItem.price}
+                          onChange={(e) => setNewItem({...newItem, price: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="number">Número</Label>
+                        <Input
+                          id="number"
+                          value={newItem.number}
+                          placeholder="Se genera automáticamente si se deja vacío"
+                          onChange={(e) => setNewItem({...newItem, number: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>Foto</Label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            variant="outline"
+                          >
+                            <Camera className="h-4 w-4 mr-2" />Subir Imagen
+                          </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </div>
+                        <img
+                          src={newItem.photo}
+                          alt="Preview"
+                          className="w-20 h-20 object-cover rounded mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>OCR - Extraer texto de imagen</Label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => ocrInputRef.current?.click()}
+                            variant="outline"
+                            disabled={isProcessingOCR}
+                          >
+                            <ScanLine className="h-4 w-4 mr-2" />
+                            {isProcessingOCR ? 'Procesando...' : 'Escanear Imagen'}
+                          </Button>
+                          <input
+                            ref={ocrInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={processOCR}
+                            className="hidden"
+                          />
+                        </div>
+                        {ocrText && (
+                          <div className="mt-2">
+                            <Label>Texto extraído:</Label>
+                            <Textarea
+                              value={ocrText}
+                              onChange={(e) => setOcrText(e.target.value)}
+                              rows={3}
+                              className="mt-1"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={addItem}>Agregar</Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddingItem(false)
+                            setNewItem({ name: '', price: '', photo: '/placeholder.svg?key=new-item', number: '' })
+                            setOcrText('')
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {items.map((item) => (
+                    <Card key={item.id}>
+                      <CardContent className="p-4">
+                        <div className="relative">
+                          <img
+                            src={item.photo}
+                            alt={item.name}
+                            className="w-full h-32 object-cover rounded mb-2"
+                          />
+                          <div className="absolute top-1 right-1 flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => editFileInputRef.current?.click()}
+                            >
+                              <Camera className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => removeItemImage(item.id)}
+                            >
+                              <ImageOff className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <input
+                            ref={editFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleEditImageUpload}
+                            className="hidden"
+                          />
+                        </div>
+                        
+                        {editingItem?.id === item.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={editForm.name}
+                              onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editForm.price}
+                              onChange={(e) => setEditForm({...editForm, price: e.target.value})}
+                            />
+                            <Input
+                              value={editForm.number}
+                              onChange={(e) => setEditForm({...editForm, number: e.target.value})}
+                            />
+                            <div className="flex gap-1">
+                              <Button size="sm" onClick={saveEditItem}>
+                                <Save className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingItem(null)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <h3 className="font-medium">{item.name}</h3>
+                            <p className="text-sm text-gray-500">#{item.number}</p>
+                            <p className="text-lg font-bold text-blue-600 mb-2">${(item.price || 0).toFixed(2)}</p>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={() => startEditItem(item)}>
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      El producto se moverá a elementos eliminados y podrá ser restaurado.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => removeItem(item.id)}>
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
                     </Card>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {configView === "deleted" && (
-              <div className="space-y-4">
-                {deletedItems.length === 0 ? (
-                  <Card className="p-8 text-center">
-                    <Trash2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No hay artículos eliminados</p>
-                    <p className="text-xs text-muted-foreground mt-2">Los artículos eliminados aparecerán aquí</p>
-                  </Card>
+                {deletedItems.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4">Productos Eliminados ({deletedItems.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {deletedItems.map((item) => (
+                        <Card key={item.id} className="opacity-75">
+                          <CardContent className="p-4">
+                            <img
+                              src={item.photo}
+                              alt={item.name}
+                              className="w-full h-32 object-cover rounded mb-2 grayscale"
+                            />
+                            <h3 className="font-medium text-gray-600">{item.name}</h3>
+                            <p className="text-sm text-gray-500">#{item.number}</p>
+                            <p className="text-lg font-bold text-gray-500 mb-2">${(item.price || 0).toFixed(2)}</p>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={() => restoreItem(item.id)}>
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Restaurar
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar permanentemente?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción no se puede deshacer. El producto se eliminará permanentemente.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => permanentlyDeleteItem(item.id)}>
+                                      Eliminar Permanentemente
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pedidos Pendientes ({orders.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {orders.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No hay pedidos pendientes</p>
                 ) : (
-                  <div className="grid gap-4">
-                    {deletedItems.map((item) => (
-                      <Card key={item.id} className="p-4 bg-muted/30">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={item.photo || "/placeholder.svg"}
-                            alt={item.name}
-                            className="w-16 h-16 object-cover rounded-md flex-shrink-0 opacity-50"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src = "/generic-food-item.png"
-                            }}
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium text-muted-foreground">{item.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              #{item.number} • ${item.price.toFixed(2)}
-                            </p>
+                  <div className="space-y-4">
+                    {orders.map((order) => (
+                      <Card key={order.id}>
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <p className="font-medium">Pedido #{order.id}</p>
+                              <p className="text-sm text-gray-500">
+                                {order.timestamp.toLocaleString()}
+                              </p>
+                              {order.customerName && (
+                                <p className="text-sm text-gray-600">Cliente: {order.customerName}</p>
+                              )}
+                            </div>
+                            <Badge variant="secondary">${order.total.toFixed(2)}</Badge>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => restoreItem(item.id)}>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Restaurar
-                          </Button>
-                        </div>
+                          <div className="space-y-1 mb-3">
+                            {order.items.map((item, index) => (
+                              <p key={index} className="text-sm">
+                                {item.name} x{item.quantity} - ${((item.price || 0) * item.quantity).toFixed(2)}
+                              </p>
+                            ))}
+                          </div>
+                          
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              type="number"
+                              placeholder="% Descuento"
+                              className="w-24"
+                              onChange={(e) => {
+                                const discount = parseFloat(e.target.value) || 0
+                                if (discount >= 0 && discount <= 100) {
+                                  applyDiscount(order.id, discount)
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => confirmPayment(order.id)}
+                              className="flex items-center gap-1"
+                            >
+                              <Check className="h-3 w-3" />
+                              Confirmar Pago
+                            </Button>
+                          </div>
+                        </CardContent>
                       </Card>
                     ))}
                   </div>
                 )}
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <Button
-              onClick={() => {
-                const allOrders = [...orders, ...paymentHistory]
-                const dataStr = JSON.stringify(allOrders, null, 2)
-                const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr)
-                const exportFileDefaultName = `pedidos_${new Date().toISOString().split("T")[0]}.json`
-                const linkElement = document.createElement("a")
-                linkElement.setAttribute("href", dataUri)
-                linkElement.setAttribute("download", exportFileDefaultName)
-                linkElement.click()
-              }}
-              className="w-full"
-              variant="outline"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Descargar JSON de Pedidos
-            </Button>
-          </div>
-        )}
+          <TabsContent value="history">
+            <Card>
+              <CardHeader>
+                <CardTitle>Historial de Ventas ({paymentHistory.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {paymentHistory.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No hay ventas registradas</p>
+                ) : (
+                  <ScrollArea className="h-96">
+                    <div className="space-y-4">
+                      {paymentHistory.map((sale) => (
+                        <Card key={sale.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-medium">Venta #{sale.id}</p>
+                                <p className="text-sm text-gray-500">
+                                  {sale.timestamp.toLocaleString()}
+                                </p>
+                                {sale.customerName && (
+                                  <p className="text-sm text-gray-600">Cliente: {sale.customerName}</p>
+                                )}
+                              </div>
+                              <Badge>${sale.total.toFixed(2)}</Badge>
+                            </div>
+                            <div className="space-y-1">
+                              {sale.items.map((item, index) => (
+                                <p key={index} className="text-sm">
+                                  {item.name} x{item.quantity} - ${((item.price || 0) * item.quantity).toFixed(2)}
+                                </p>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -9,12 +9,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "@vercel/analytics": "^1.5.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/postgres": "^0.10.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fs": "latest",
+    "geist": "^1.5.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",

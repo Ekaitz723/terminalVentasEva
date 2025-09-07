@@ -643,7 +643,7 @@ export default function SalesTerminal() {
             <TabsTrigger value="pos">Terminal POS</TabsTrigger>
             <TabsTrigger value="items">Gestión de Productos</TabsTrigger>
             <TabsTrigger value="orders">Pedidos</TabsTrigger>
-            <TabsTrigger value="history">Historial</TabsTrigger>
+            {/* <TabsTrigger value="history">Historial</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="pos" className="space-y-6">

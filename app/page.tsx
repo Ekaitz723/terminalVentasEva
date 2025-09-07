@@ -221,17 +221,16 @@ export default function SalesApp() {
     }
   }
 
-  const saveItemsToServer = async (itemsData: any) => {
-    console.log("[v0] Saving items to server:", itemsData.items?.length || 0)
+  const saveItemToServer = async (newItem: any) => {
     try {
       const response = await fetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(itemsData),
+        body: JSON.stringify(newItem),
       })
-      console.log("[v0] Save items response:", response.status)
+      console.log("[v0] Save item response:", response.status)
     } catch (error) {
-      console.error("[v0] Failed to save items to server:", error)
+      console.error("[v0] Failed to save item to server:", error)
     }
   }
 
@@ -394,10 +393,10 @@ export default function SalesApp() {
       prev.map((order) =>
         order.id === orderId
           ? {
-              ...order,
-              originalTotal: order.originalTotal || order.total,
-              total: newTotal,
-            }
+            ...order,
+            originalTotal: order.originalTotal || order.total,
+            total: newTotal,
+          }
           : order,
       ),
     )
@@ -415,10 +414,10 @@ export default function SalesApp() {
       prev.map((order) =>
         order.id === orderId
           ? {
-              ...order,
-              originalTotal: order.originalTotal || order.total,
-              total: (order.originalTotal || order.total) * (1 - percentage / 100),
-            }
+            ...order,
+            originalTotal: order.originalTotal || order.total,
+            total: (order.originalTotal || order.total) * (1 - percentage / 100),
+          }
           : order,
       ),
     )
@@ -558,10 +557,10 @@ export default function SalesApp() {
       prev.map((order) =>
         order.id === orderId
           ? {
-              ...order,
-              originalTotal: order.originalTotal || order.total,
-              total: newTotal,
-            }
+            ...order,
+            originalTotal: order.originalTotal || order.total,
+            total: newTotal,
+          }
           : order,
       ),
     )
@@ -615,9 +614,8 @@ export default function SalesApp() {
           <button
             key={key}
             onClick={() => setActiveTab(key as any)}
-            className={`flex-1 flex items-center justify-center gap-2 p-4 text-sm font-medium transition-colors min-h-[60px] ${
-              activeTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 p-4 text-sm font-medium transition-colors min-h-[60px] ${activeTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             <Icon className="h-5 w-5" />
             {label}

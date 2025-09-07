@@ -3,10 +3,8 @@ import { kv } from '@/lib/db';
 export async function GET() {
   try {
     const items = await kv.get<any[]>('items') || [];
-    console.log('API GET items:', items);
-    return Response.json({ items: items });
+    return Response.json({ items });
   } catch (error) {
-    console.log('API GET error:', error);
     return Response.json({ error: 'Failed to fetch items' }, { status: 500 });
   }
 }
@@ -15,20 +13,17 @@ export async function POST(request: Request) {
   try {
     const newItem = await request.json();
     const items = await kv.get<any[]>('items') || [];
-    
-    // Extract just the item data, not the container
-    const itemData = newItem.items?.[0] || newItem;
-    
-    const maxId = items.length > 0 ? Math.max(...items.map(item => item.id || 0)) : 0;
+    const nextId = await kv.get<number>('items_next_id') || 1;
     
     const item = {
-      ...itemData,
-      id: maxId + 1,
+      ...newItem,
+      id: nextId,
       createdAt: new Date().toISOString()
     };
     
     items.push(item);
     await kv.set('items', items);
+    await kv.set('items_next_id', nextId + 1);
     
     return Response.json({ success: true, item });
   } catch (error) {

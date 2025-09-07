@@ -1147,7 +1147,7 @@ export default function SalesTerminal() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="history">
+          {/* <TabsContent value="history">
             <Card>
               <CardHeader>
                 <CardTitle>Historial de Ventas ({paymentHistory.length})</CardTitle>
@@ -1188,7 +1188,7 @@ export default function SalesTerminal() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
       </div>
     </div>

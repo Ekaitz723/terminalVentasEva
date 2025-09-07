@@ -43,18 +43,25 @@ export async function DELETE(request: Request) {
     }
     
     const items = await kv.get<any[]>('items') || [];
+    console.log('Before delete, items:', items);
+    console.log('Deleting ID:', idToDelete);
+    
     const targetId = parseInt(idToDelete);
     const itemExists = items.some(item => item.id === targetId);
+    console.log('Item exists:', itemExists);
     
     if (!itemExists) {
       return Response.json({ error: 'Item not found' }, { status: 404 });
     }
     
     const filteredItems = items.filter(item => item.id !== targetId);
+    console.log('After filter, items:', filteredItems);
+    
     await kv.set('items', filteredItems);
     
     return Response.json({ success: true });
   } catch (error) {
+    console.log('Delete error:', error);
     return Response.json({ error: 'Failed to delete item' }, { status: 500 });
   }
 }

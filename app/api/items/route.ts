@@ -2,8 +2,9 @@ import { kv } from '@/lib/db';
 
 export async function GET() {
   try {
-    const products = await kv.get('products') || [];
-    return Response.json({ products });
+    const products = await kv.get<any[]>('products') || [];
+    const flatProducts = products.flatMap(p => p.items || []);
+    return Response.json({ products: flatProducts });
   } catch (error) {
     return Response.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
